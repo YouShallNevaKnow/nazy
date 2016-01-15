@@ -11,7 +11,8 @@ package me.phal.wrench;
 	import org.bukkit.entity.EntityType;
 	import org.bukkit.entity.Player;
 	import org.bukkit.event.EventHandler;
-	import org.bukkit.event.Listener;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 	import org.bukkit.event.block.Action;
 	import org.bukkit.event.block.BlockBreakEvent;
 	import org.bukkit.event.block.BlockPlaceEvent;
@@ -22,21 +23,22 @@ package me.phal.wrench;
 	import org.bukkit.inventory.meta.ItemMeta;
 
 import de.dustplanet.silkspawners.events.SilkSpawnersSpawnerChangeEvent;
+import de.dustplanet.util.SilkUtil;
 
 	public class MainListener
 	  implements Listener
 	{
-		@EventHandler
-		public void onSpawnerChange(SilkSpawnersSpawnerChangeEvent event) {
-			// Get information
-			Player player = event.getPlayer();
-			short entityID = event.getEntityID();
-			CreatureSpawner spawner = event.getSpawner();
-			Block block = event.getBlock();
-			
-			// Set new ID (pig = 90)
-			event.setEntityID(90);
-		}
+		SilkUtil su = SilkUtil.hookIntoSilkSpanwers();
+	
+	@EventHandler
+	public void onSpawnerChange(SilkSpawnersSpawnerChangeEvent event) {
+		// Get information
+		Player player = event.getPlayer();
+		short entityID = event.getEntityID();
+		CreatureSpawner spawner = event.getSpawner();
+		Block block = event.getBlock();
+
+	}
 	  @EventHandler
 	  public void onBreak(BlockBreakEvent e)
 	  {
@@ -73,17 +75,48 @@ import de.dustplanet.silkspawners.events.SilkSpawnersSpawnerChangeEvent;
 	        e.setCancelled(true);
 	      }
 	  }
+	  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	    public void onBlockPlace(BlockPlaceEvent event) {
+		  SilkUtil su = SilkUtil.hookIntoSilkSpanwers();
+	        if (event.isCancelled()) {
+	            return;
+	        }
+	        Block blockPlaced = event.getBlockPlaced();
+	        if (blockPlaced.getType() != Material.MOB_SPAWNER) {
+	            return;
+	        }
+	        Player player = event.getPlayer();
+	        if (!su.canBuildHere(player, blockPlaced.getLocation())) {
+	            return;
+	        }
+	        ItemStack item = event.getItemInHand();
+	        short entityID = su.getStoredSpawnerItemEntityID(item);
+	        boolean defaultID = false;
+	        if (entityID == 0 || !su.knownEids.contains(entityID)) {
+	            defaultID = true;
+	            entityID = su.getDefaultEntityID();
+	        }
+	        String creatureName = su.getCreatureName(entityID);
+	        String spawnerName = creatureName.toLowerCase().replace(" ", "");
 
-	  @EventHandler
+	        if (!player.hasPermission("silkspawners.place." + spawnerName)) {
+	            event.setCancelled(true);
+	            return;
+	        }
+
+	        su.setSpawnerEntityID(blockPlaced, entityID);
+	    }
+	/*  @EventHandler
 	  public void onPlace(BlockPlaceEvent e)
 	  {
+		  SilkUtil su = SilkUtil.hookIntoSilkSpanwers();
 	    if ((e.getBlockPlaced().getType().equals(Material.MOB_SPAWNER)) && 
 	      (e.getItemInHand().hasItemMeta()) && 
 	      (e.getItemInHand().getItemMeta().hasDisplayName()) && 
 	      (EntityType.fromName(e.getItemInHand().getItemMeta().getDisplayName().replace(" SPAWNER", "")) != null))
 	      ((CreatureSpawner)e.getBlockPlaced().getState()).setCreatureTypeByName(e.getItemInHand().getItemMeta()
 	        .getDisplayName().replace(" Spawner", ""));
-	  }
+	  }*/
 
 	  @EventHandler
 	  public void onSign(SignChangeEvent e)
